@@ -121,6 +121,8 @@ class Accelerator extends Module {
         pixelColor := 1.U(32.W)
       }
     }
+
+    //Test
     
     is (increment2) {
       x = 0.U(16.W)
