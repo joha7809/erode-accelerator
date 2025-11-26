@@ -122,8 +122,6 @@ class Accelerator extends Module {
       }
     }
 
-    //Test
-    
     is (increment2) {
       x = 0.U(16.W)
       y = y + 1.U(16.W)
