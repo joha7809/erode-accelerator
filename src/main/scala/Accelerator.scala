@@ -66,7 +66,7 @@ class Accelerator extends Module {
 
     is(checkBelow) {
       when(
-        io.dataRead === 0.U(32.W)
+        dataReg === 0.U(32.W)
       ) {
         stateReg := writeBlack
       }.otherwise {
@@ -78,7 +78,7 @@ class Accelerator extends Module {
 
     is(checkAbove) {
       when(
-        io.dataRead === 0.U(32.W)
+        dataReg === 0.U(32.W)
       ) {
         stateReg := writeBlack
       }.otherwise {
@@ -90,7 +90,7 @@ class Accelerator extends Module {
 
     is(checkLeft) {
       when(
-        io.dataRead === 0.U(32.W)
+        dataReg === 0.U(32.W)
       ) {
         stateReg := writeBlack
       }.otherwise {
@@ -102,7 +102,7 @@ class Accelerator extends Module {
 
     is(checkRight) {
       when(
-        io.dataRead === 0.U(32.W)
+        dataReg === 0.U(32.W)
       ) {
         stateReg := writeBlack
       }.otherwise {
@@ -122,7 +122,7 @@ class Accelerator extends Module {
     }
 
     is(write) {
-      io.address := x + y * 20.U
+      io.address := (x + y * 20.U) + 400.U
       io.dataWrite := writeColor
       io.writeEnable := 1.B
       stateReg := increment1
@@ -165,4 +165,3 @@ class Accelerator extends Module {
 
   }
 }
-
