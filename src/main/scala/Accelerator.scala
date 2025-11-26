@@ -55,8 +55,9 @@ class Accelerator extends Module {
 
     is(checkBlack) {
       when(dataReg === 0.U(32.W)) {
+        writeColor := 0.U(32.W)
         pixelColor := 0.U(32.W)
-        stateReg := writeBlack
+        stateReg := write;
       }.otherwise {
         io.address := (x + (y + 1.U) * 20.U) // set address to y below
         dataReg := io.dataRead
@@ -66,9 +67,10 @@ class Accelerator extends Module {
 
     is(checkBelow) {
       when(
-        io.dataRead === 0.U(32.W)
+        dataReg === 0.U(32.W)
       ) {
-        stateReg := writeBlack
+        writeColor := 0.U(32.W)
+        stateReg := write;
       }.otherwise {
         io.address := (x + (y - 1.U) * 20.U) // set address to y above
         dataReg := io.dataRead
@@ -78,9 +80,10 @@ class Accelerator extends Module {
 
     is(checkAbove) {
       when(
-        io.dataRead === 0.U(32.W)
+        dataReg === 0.U(32.W)
       ) {
-        stateReg := writeBlack
+        writeColor := 0.U(32.W)
+        stateReg := write
       }.otherwise {
         io.address := ((x - 1.U) + y * 20.U) // set address to x left
         dataReg := io.dataRead
@@ -90,9 +93,10 @@ class Accelerator extends Module {
 
     is(checkLeft) {
       when(
-        io.dataRead === 0.U(32.W)
+        dataReg === 0.U(32.W)
       ) {
-        stateReg := writeBlack
+        writeColor := 0.U(32.W)
+        stateReg := write
       }.otherwise {
         io.address := ((x + 1.U) + y * 20.U) // set address to x right
         dataReg := io.dataRead
@@ -102,12 +106,14 @@ class Accelerator extends Module {
 
     is(checkRight) {
       when(
-        io.dataRead === 0.U(32.W)
+        dataReg === 0.U(32.W)
       ) {
-        stateReg := writeBlack
+        writeColor := 0.U(32.W)
+        stateReg := write
+
       }.otherwise {
-        pixelColor := 1.U(32.W)
-        stateReg := writeWhite
+        writeColor := 255.U(32.W)
+        stateReg := write
       }
     }
 
@@ -122,7 +128,7 @@ class Accelerator extends Module {
     }
 
     is(write) {
-      io.address := x + y * 20.U
+      io.address := (x + y * 20.U) + 400.U
       io.dataWrite := writeColor
       io.writeEnable := 1.B
       stateReg := increment1
@@ -165,4 +171,3 @@ class Accelerator extends Module {
 
   }
 }
-
