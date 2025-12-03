@@ -14,9 +14,9 @@ class Accelerator extends Module {
   })
 
   // State enum and register
-  val idle :: start :: borderCheck :: checkBlack :: checkBelow :: checkAbove :: checkLeft :: checkRight :: writeBlack :: writeWhite :: write :: increment1 :: increment2 :: end :: Nil =
-    Enum(14);
-  val stateReg = RegInit(idle)
+  val start :: borderCheck :: checkBlack :: checkBelow :: checkAbove :: checkLeft :: checkRight :: writeBlack :: writeWhite :: write :: increment1 :: increment2 :: end :: Nil =
+    Enum(13);
+  val stateReg = RegInit(start)
   val x = RegInit(0.U(16.W))
   val y = RegInit(0.U(16.W))
   val pixelColor = RegInit(1.U(32.W))
@@ -33,7 +33,7 @@ class Accelerator extends Module {
 
   // FSMD switch
   switch(stateReg) {
-    is(idle) {
+    is(start) {
       when(io.start) {
         stateReg := borderCheck
         x := 0.U(16.W)
@@ -44,7 +44,6 @@ class Accelerator extends Module {
     is(borderCheck) {
       when(x === 0.U || x === 19.U || y === 0.U || y === 19.U) {
         writeColor := 0.U(32.W)
-        pixelColor := 0.U(32.W)
         stateReg := write;
       }.otherwise {
         io.address := (x + y * 20.U)
@@ -117,15 +116,15 @@ class Accelerator extends Module {
       }
     }
 
-    is(writeBlack) {
-      writeColor := 0.U(32.W)
-      stateReg := write
-    }
-
-    is(writeWhite) {
-      writeColor := 255.U(32.W)
-      stateReg := write
-    }
+    // is(writeBlack) {
+    //   writeColor := 0.U(32.W)
+    //   stateReg := write
+    // }
+    //
+    // is(writeWhite) {
+    //   writeColor := 255.U(32.W)
+    //   stateReg := write
+    // }
 
     is(write) {
       io.address := (x + y * 20.U) + 400.U
@@ -136,17 +135,15 @@ class Accelerator extends Module {
 
     is(increment1) {
       x := x + 1.U(16.W)
-      when(x === 19.U) {
+      when(x === 20.U) {
         stateReg := increment2
       }.elsewhen(
         (pixelColor === 0.U) &&
-          (writtenTwice === 0.U) &&
-          (x =/= 0.U) &&
-          (x =/= 19.U)
+          (writtenTwice === 0.U)
       ) {
         writtenTwice := 1.B
         stateReg := write
-      }.elsewhen(x =/= 19.U) {
+      }.elsewhen(x =/= 20.U) {
         stateReg := borderCheck
         writtenTwice := 0.B
         pixelColor := 1.U(32.W)
