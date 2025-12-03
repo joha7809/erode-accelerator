@@ -1,5 +1,6 @@
 import chisel3._
 import chisel3.util._
+import os.stat
 
 class Accelerator extends Module {
   val io = IO(new Bundle {
@@ -132,9 +133,12 @@ class Accelerator extends Module {
       // io.dataWrite := 255.U
       io.writeEnable := 1.B
       x := x + 1.U(16.W)
+
       when(y === 19.U && x === 20.U) {
         stateReg := end
-      }.elsewhen(cantSkip === 0.U && writtenOnce === 0.B && x =/= 20.U) {
+      }.elsewhen(
+        cantSkip === 0.U && writtenOnce === 0.B && x =/= 20.U && y =/= 19.U
+      ) {
         writtenOnce := 1.B
         stateReg := write
       }.elsewhen(x === 20.U && y =/= 19.U) {
@@ -143,45 +147,17 @@ class Accelerator extends Module {
         writtenOnce := 0.B
         writeColor := 0.U
         stateReg := write
-      }.elsewhen(x =/= 20.U && (cantSkip === 1.U || writtenOnce === 1.B)) {
-        writtenOnce := 0.B
-        cantSkip := 1.U
-        stateReg := borderCheck
-      }.elsewhen(y =/= 20.U && (cantSkip === 1.U || writtenOnce === 1.B)) {
+      }.elsewhen(y === 19.U && x =/= 20.U) {
+        writeColor := 0.U
+        stateReg := write
+      }.elsewhen(
+        (y =/= 19.U && x =/= 20.U) && (cantSkip === 1.U || writtenOnce === 1.B)
+      ) {
         writtenOnce := 0.B
         cantSkip := 1.U
         stateReg := borderCheck
       }
     }
-
-    // is(increment1) {
-    //   x := x + 1.U(16.W)
-    //   when(x === 20.U) {
-    //     stateReg := increment2
-    //   }.elsewhen(
-    //     (pixelColor === 0.U) &&
-    //       (writtenTwice === 0.U)
-    //   ) {
-    //     writtenTwice := 1.B
-    //     stateReg := write
-    //   }.elsewhen(x =/= 20.U) {
-    //     stateReg := borderCheck
-    //     writtenTwice := 0.B
-    //     pixelColor := 1.U(32.W)
-    //   }
-    // }
-    //
-    // is(increment2) {
-    //   x := 0.U(16.W)
-    //   y := y + 1.U(16.W)
-    //   when(y === 20.U) {
-    //     stateReg := end
-    //   }.elsewhen(y =/= 20.U) {
-    //     stateReg := borderCheck
-    //     writtenTwice := 0.B
-    //     pixelColor := 1.U(32.W)
-    //   }
-    // }
 
     is(end) {
       io.done := true.B
