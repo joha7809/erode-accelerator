@@ -19,9 +19,9 @@ class Accelerator extends Module {
   val stateReg = RegInit(start)
   val x = RegInit(0.U(16.W))
   val y = RegInit(0.U(16.W))
-  val pixelColor = RegInit(1.U(32.W))
+  val cantSkip = RegInit(1.U(32.W))
   val writeColor = RegInit(0.U(32.W))
-  val writtenTwice = RegInit(0.B)
+  val writtenOnce = RegInit(0.B)
 
   val dataReg = RegInit(0.U(32.W))
 
@@ -55,7 +55,7 @@ class Accelerator extends Module {
     is(checkBlack) {
       when(dataReg === 0.U(32.W)) {
         writeColor := 0.U(32.W)
-        pixelColor := 0.U(32.W)
+        cantSkip := 0.U(32.W)
         stateReg := write;
       }.otherwise {
         io.address := (x + (y + 1.U) * 20.U) // set address to y below
@@ -129,38 +129,59 @@ class Accelerator extends Module {
     is(write) {
       io.address := (x + y * 20.U) + 400.U
       io.dataWrite := writeColor
+      // io.dataWrite := 255.U
       io.writeEnable := 1.B
-      stateReg := increment1
-    }
-
-    is(increment1) {
       x := x + 1.U(16.W)
-      when(x === 20.U) {
-        stateReg := increment2
-      }.elsewhen(
-        (pixelColor === 0.U) &&
-          (writtenTwice === 0.U)
-      ) {
-        writtenTwice := 1.B
+      when(y === 19.U && x === 20.U) {
+        stateReg := end
+      }.elsewhen(cantSkip === 0.U && writtenOnce === 0.B && x =/= 20.U) {
+        writtenOnce := 1.B
         stateReg := write
-      }.elsewhen(x =/= 20.U) {
+      }.elsewhen(x === 20.U && y =/= 19.U) {
+        x := 0.U
+        y := y + 1.U
+        writtenOnce := 0.B
+        writeColor := 0.U
+        stateReg := write
+      }.elsewhen(x =/= 20.U && (cantSkip === 1.U || writtenOnce === 1.B)) {
+        writtenOnce := 0.B
+        cantSkip := 1.U
         stateReg := borderCheck
-        writtenTwice := 0.B
-        pixelColor := 1.U(32.W)
+      }.elsewhen(y =/= 20.U && (cantSkip === 1.U || writtenOnce === 1.B)) {
+        writtenOnce := 0.B
+        cantSkip := 1.U
+        stateReg := borderCheck
       }
     }
 
-    is(increment2) {
-      x := 0.U(16.W)
-      y := y + 1.U(16.W)
-      when(y === 20.U) {
-        stateReg := end
-      }.elsewhen(y =/= 20.U) {
-        stateReg := borderCheck
-        writtenTwice := 0.B
-        pixelColor := 1.U(32.W)
-      }
-    }
+    // is(increment1) {
+    //   x := x + 1.U(16.W)
+    //   when(x === 20.U) {
+    //     stateReg := increment2
+    //   }.elsewhen(
+    //     (pixelColor === 0.U) &&
+    //       (writtenTwice === 0.U)
+    //   ) {
+    //     writtenTwice := 1.B
+    //     stateReg := write
+    //   }.elsewhen(x =/= 20.U) {
+    //     stateReg := borderCheck
+    //     writtenTwice := 0.B
+    //     pixelColor := 1.U(32.W)
+    //   }
+    // }
+    //
+    // is(increment2) {
+    //   x := 0.U(16.W)
+    //   y := y + 1.U(16.W)
+    //   when(y === 20.U) {
+    //     stateReg := end
+    //   }.elsewhen(y =/= 20.U) {
+    //     stateReg := borderCheck
+    //     writtenTwice := 0.B
+    //     pixelColor := 1.U(32.W)
+    //   }
+    // }
 
     is(end) {
       io.done := true.B
