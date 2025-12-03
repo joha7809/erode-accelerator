@@ -14,14 +14,14 @@ class Accelerator extends Module {
   })
 
   // State enum and register
-  val idle :: start :: borderCheck :: checkBlack :: checkBelow :: checkAbove :: checkLeft :: checkRight :: writeBlack :: writeWhite :: write :: increment1 :: increment2 :: end :: Nil =
-    Enum(14);
-  val stateReg = RegInit(idle)
+  val start :: borderCheck :: checkBlack :: checkBelow :: checkAbove :: checkLeft :: checkRight :: writeBlack :: writeWhite :: write :: increment1 :: increment2 :: end :: Nil =
+    Enum(13);
+  val stateReg = RegInit(start)
   val x = RegInit(0.U(16.W))
   val y = RegInit(0.U(16.W))
-  val pixelColor = RegInit(1.U(32.W))
+  val cantSkip = RegInit(1.U(32.W))
   val writeColor = RegInit(0.U(32.W))
-  val writtenTwice = RegInit(0.B)
+  val writtenOnce = RegInit(0.B)
 
   val dataReg = RegInit(0.U(32.W))
 
@@ -33,7 +33,7 @@ class Accelerator extends Module {
 
   // FSMD switch
   switch(stateReg) {
-    is(idle) {
+    is(start) {
       when(io.start) {
         stateReg := borderCheck
         x := 0.U(16.W)
@@ -44,7 +44,6 @@ class Accelerator extends Module {
     is(borderCheck) {
       when(x === 0.U || x === 19.U || y === 0.U || y === 19.U) {
         writeColor := 0.U(32.W)
-        pixelColor := 0.U(32.W)
         stateReg := write;
       }.otherwise {
         io.address := (x + y * 20.U)
@@ -55,8 +54,9 @@ class Accelerator extends Module {
 
     is(checkBlack) {
       when(dataReg === 0.U(32.W)) {
-        pixelColor := 0.U(32.W)
-        stateReg := writeBlack
+        writeColor := 0.U(32.W)
+        cantSkip := 0.U(32.W)
+        stateReg := write;
       }.otherwise {
         io.address := (x + (y + 1.U) * 20.U) // set address to y below
         dataReg := io.dataRead
@@ -68,7 +68,8 @@ class Accelerator extends Module {
       when(
         dataReg === 0.U(32.W)
       ) {
-        stateReg := writeBlack
+        writeColor := 0.U(32.W)
+        stateReg := write;
       }.otherwise {
         io.address := (x + (y - 1.U) * 20.U) // set address to y above
         dataReg := io.dataRead
@@ -80,7 +81,8 @@ class Accelerator extends Module {
       when(
         dataReg === 0.U(32.W)
       ) {
-        stateReg := writeBlack
+        writeColor := 0.U(32.W)
+        stateReg := write
       }.otherwise {
         io.address := ((x - 1.U) + y * 20.U) // set address to x left
         dataReg := io.dataRead
@@ -92,7 +94,8 @@ class Accelerator extends Module {
       when(
         dataReg === 0.U(32.W)
       ) {
-        stateReg := writeBlack
+        writeColor := 0.U(32.W)
+        stateReg := write
       }.otherwise {
         io.address := ((x + 1.U) + y * 20.U) // set address to x right
         dataReg := io.dataRead
@@ -104,60 +107,81 @@ class Accelerator extends Module {
       when(
         dataReg === 0.U(32.W)
       ) {
-        stateReg := writeBlack
+        writeColor := 0.U(32.W)
+        stateReg := write
+
       }.otherwise {
-        pixelColor := 1.U(32.W)
-        stateReg := writeWhite
+        writeColor := 255.U(32.W)
+        stateReg := write
       }
     }
 
-    is(writeBlack) {
-      writeColor := 0.U(32.W)
-      stateReg := write
-    }
-
-    is(writeWhite) {
-      writeColor := 255.U(32.W)
-      stateReg := write
-    }
+    // is(writeBlack) {
+    //   writeColor := 0.U(32.W)
+    //   stateReg := write
+    // }
+    //
+    // is(writeWhite) {
+    //   writeColor := 255.U(32.W)
+    //   stateReg := write
+    // }
 
     is(write) {
       io.address := (x + y * 20.U) + 400.U
       io.dataWrite := writeColor
+      // io.dataWrite := 255.U
       io.writeEnable := 1.B
-      stateReg := increment1
-    }
-
-    is(increment1) {
       x := x + 1.U(16.W)
-      when(x === 19.U) {
-        stateReg := increment2
-      }.elsewhen(
-        (pixelColor === 0.U) &&
-          (writtenTwice === 0.U) &&
-          (x =/= 0.U) &&
-          (x =/= 19.U)
-      ) {
-        writtenTwice := 1.B
+      when(y === 19.U && x === 20.U) {
+        stateReg := end
+      }.elsewhen(cantSkip === 0.U && writtenOnce === 0.B && x =/= 20.U) {
+        writtenOnce := 1.B
         stateReg := write
-      }.elsewhen(x =/= 19.U) {
+      }.elsewhen(x === 20.U && y =/= 19.U) {
+        x := 0.U
+        y := y + 1.U
+        writtenOnce := 0.B
+        writeColor := 0.U
+        stateReg := write
+      }.elsewhen(x =/= 20.U && (cantSkip === 1.U || writtenOnce === 1.B)) {
+        writtenOnce := 0.B
+        cantSkip := 1.U
         stateReg := borderCheck
-        writtenTwice := 0.B
-        pixelColor := 1.U(32.W)
+      }.elsewhen(y =/= 20.U && (cantSkip === 1.U || writtenOnce === 1.B)) {
+        writtenOnce := 0.B
+        cantSkip := 1.U
+        stateReg := borderCheck
       }
     }
 
-    is(increment2) {
-      x := 0.U(16.W)
-      y := y + 1.U(16.W)
-      when(y === 20.U) {
-        stateReg := end
-      }.elsewhen(y =/= 20.U) {
-        stateReg := borderCheck
-        writtenTwice := 0.B
-        pixelColor := 1.U(32.W)
-      }
-    }
+    // is(increment1) {
+    //   x := x + 1.U(16.W)
+    //   when(x === 20.U) {
+    //     stateReg := increment2
+    //   }.elsewhen(
+    //     (pixelColor === 0.U) &&
+    //       (writtenTwice === 0.U)
+    //   ) {
+    //     writtenTwice := 1.B
+    //     stateReg := write
+    //   }.elsewhen(x =/= 20.U) {
+    //     stateReg := borderCheck
+    //     writtenTwice := 0.B
+    //     pixelColor := 1.U(32.W)
+    //   }
+    // }
+    //
+    // is(increment2) {
+    //   x := 0.U(16.W)
+    //   y := y + 1.U(16.W)
+    //   when(y === 20.U) {
+    //     stateReg := end
+    //   }.elsewhen(y =/= 20.U) {
+    //     stateReg := borderCheck
+    //     writtenTwice := 0.B
+    //     pixelColor := 1.U(32.W)
+    //   }
+    // }
 
     is(end) {
       io.done := true.B
